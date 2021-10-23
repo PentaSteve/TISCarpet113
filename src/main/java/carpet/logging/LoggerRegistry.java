@@ -2,6 +2,7 @@ package carpet.logging;
 
 import carpet.logging.commandblock.CommandBlockLogger;
 import carpet.logging.lifetime.LifeTimeHUDLogger;
+import carpet.logging.microtiming.utils.MicroTimingStandardCarpetLogger;
 import carpet.logging.tickwarp.TickWarpHUDLogger;
 import carpet.settings.CarpetSettings;
 import net.minecraft.entity.player.EntityPlayer;
@@ -39,6 +40,7 @@ public class LoggerRegistry
     public static boolean __commandBlock;
     public static boolean __tickWarp;
     public static boolean __lifeTime;
+    public static boolean __savestate;
 
     public static void initLoggers()
     {
@@ -59,11 +61,12 @@ public class LoggerRegistry
         registerLogger("chunkdebug", new Logger("chunkdebug",null, null));
         registerLogger("villagecount", new HUDLogger("villagecount", null, null));
         registerLogger("memory", new HUDLogger("memory", null, null));
-        registerLogger("microTiming", new Logger("microTiming", "merged", new String[]{"merged", "all", "unique"}));
+        registerLogger("microTiming", MicroTimingStandardCarpetLogger.getInstance());
         registerLogger("autosave", new HUDLogger("autosave", null, null));
         registerLogger(CommandBlockLogger.NAME, new Logger(CommandBlockLogger.NAME, "throttled", new String[]{"throttled", "all"}));
         registerLogger(TickWarpHUDLogger.NAME, new HUDLogger(TickWarpHUDLogger.NAME, "bar", new String[]{"bar", "value"}));
         registerLogger(LifeTimeHUDLogger.NAME, LifeTimeHUDLogger.getInstance().getHUDLogger());
+        registerLogger("savestate", new Logger("savestate",null, null));
     }
 
     /**

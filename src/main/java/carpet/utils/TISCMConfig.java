@@ -26,5 +26,21 @@ public class TISCMConfig
 
 	// ========== Mods ==========
 	// https://github.com/EngineHub/WorldEdit
-	public static final boolean MOD_WORLDEDIT = true;
+	public static final boolean MOD_WORLDEDIT = true && classExists("com.sk89q.worldedit.WorldEdit");
+
+	// https://github.com/lucko/spark
+	public static final boolean MOD_SPARK = true && classExists("me.lucko.spark.common.SparkPlugin");
+
+	private static boolean classExists(String className)
+	{
+		try
+		{
+			Class.forName(className);
+			return true;
+		}
+		catch (ClassNotFoundException e)
+		{
+			return false;
+		}
+	}
 }

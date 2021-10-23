@@ -75,6 +75,9 @@ def projectClean = project(':clean') {
     }
 }
 
+def worldEditEnabled = System.getenv("worldedit") != "false"
+def sparkEnabled = System.getenv("spark") != "false"
+
 
 def projectMod = project(':' + settings.modname) {
     evaluationDependsOn(':clean')
@@ -92,7 +95,9 @@ def projectMod = project(':' + settings.modname) {
         }
     }
     repositories {
-        maven { url = 'https://maven.enginehub.org/repo' }
+        maven { url = 'https://maven.enginehub.org/repo' }  // worldedit
+        maven { url = 'https://www.jitpack.io' }  // spark
+        maven { url = 'https://oss.sonatype.org/content/repositories/snapshots' }  // spark dependency
         mavenLocal()
         mavenCentral()
     }
@@ -117,7 +122,8 @@ def projectMod = project(':' + settings.modname) {
         maxFuzz 3
     }
     configurations {
-        extraLibs
+        worldEditLibs
+        sparkLibs
         all {
             resolutionStrategy {
                 // force world edit to use the same log4j as minecraft 1.13.2
@@ -131,28 +137,46 @@ def projectMod = project(':' + settings.modname) {
             def vanillaLibs = []
             projectClean.configurations.runtimeClasspath.each {f ->
                 vanillaLibs.add(f.name)
-//                println 'vanilla lib: ' + f.name
             }
+
             def moddedLibs = []
-            configurations.extraLibs.each {f ->
-                if (!vanillaLibs.contains(f.name)) {
-//                    println 'Added extra lib: ' + f.name
-                    moddedLibs.add(zipTree(f))
+            if (worldEditEnabled) {
+                configurations.worldEditLibs.each { f ->
+                    if (!vanillaLibs.contains(f.name)) {
+                        moddedLibs.add(zipTree(f))
+                    }
                 }
             }
-//            println 'Total extra libs: ' + moddedLibs.size()
+            else {
+                logger.lifecycle("Worldedit is disabled by environment variable")
+            }
+            if (sparkEnabled) {
+                configurations.sparkLibs.each { f ->
+                    if (!vanillaLibs.contains(f.name)) {
+                        moddedLibs.add(zipTree(f))
+                    }
+                }
+            }
+            else {
+                logger.lifecycle("Spark is disabled by environment variable")
+            }
+
             return moddedLibs
         }
     }
     dependencies {
-        // Add extra dependencies here
-        compile 'com.sk89q.worldedit:worldedit-core:7.2.6-SNAPSHOT'
-        extraLibs ('com.sk89q.worldedit:worldedit-core:7.2.6-SNAPSHOT') {
+        // World Edit
+        compile 'com.sk89q.worldedit:worldedit-core:7.2.6'
+        worldEditLibs ('com.sk89q.worldedit:worldedit-core:7.2.6') {
             exclude group: 'com.ibm.icu'
             exclude group: 'org.antlr', module: 'antlr4'
             exclude group: 'org.mozilla'
             exclude group: 'org.yaml'
         }
+        // spark
+        compile 'com.github.TISUnion:spark:bf70da979e'
+        compileOnly 'org.checkerframework:checker-qual:3.8.0'
+        sparkLibs 'com.github.TISUnion:spark:bf70da979e'
     }
 
     task runclient(type: JavaExec, dependsOn: [":" + settings.modname + ":downloadAssets", ":" + settings.modname + ":extractNatives"]) {
@@ -532,7 +556,7 @@ if (settings.pipeline == 'joined') {
                     outputs.file 'build/filterDist' + dists[idx] + '/output.zip'
                     doLast {
                         JarFilter.filterJar(file(reobfJar.output), file('build/filterDist' + dists[idx] + '/output.zip')) {
-                            if (!filename.contains('META-INF/') && filename.endsWith('.class')) {
+                            if (!filename.contains('META-INF/') && filename.endsWith('.class') && !filename.equals('module-info.class')) {
                                 return DistUtils.stripDist(istream, unwantedDists[idx]) { classname ->
                                     def zip = new ZipFile(file(reobfJar.output))
                                     def entry = zip.getEntry(classname + '.class')
@@ -558,7 +582,7 @@ for (def dist : ['Client', 'Server']) {
         def inputArchiveName = settings.pipeline == 'joined' ? 'output.zip' : 'output.jar'
 
         dependsOn ':clean:' + inputTaskName, ':' + settings.modname + ':' + inputTaskName
-        
+
         CheckModifiedHelper check = new CheckModifiedHelper(settings.modname, inputTaskName, inputArchiveName)
         doFirst {
             check.filterUnchanged()
@@ -582,15 +606,32 @@ for (def dist : ['Client', 'Server']) {
         }
 
         // json registry and lang file in world edit
-        projectMod.configurations.extraLibs.each {file ->
-            from(zipTree(file)) {
-                eachFile { moddedFile ->
-                    def entryName = moddedFile.getRelativePath().toString()
-                    if (!(
-                            entryName.matches('com/sk89q/worldedit/world/registry/.*\\.json') ||
-                            file.name.startsWith('worldedit') && entryName.startsWith('lang/')
-                    ))
-                        moddedFile.exclude()
+        if (worldEditEnabled) {
+            projectMod.configurations.worldEditLibs.each { file ->
+                from(zipTree(file)) {
+                    eachFile { moddedFile ->
+                        String entryName = moddedFile.getRelativePath().toString()
+                        if (!(
+                                entryName.matches('com/sk89q/worldedit/world/registry/.*\\.json') ||
+                                        file.name.startsWith('worldedit') && entryName.startsWith('lang/')
+                        ))
+                            moddedFile.exclude()
+                    }
+                }
+            }
+        }
+
+        // json registry and lang file in world edit
+        if (sparkEnabled) {
+            projectMod.configurations.sparkLibs.each { file ->
+                from(zipTree(file)) {
+                    eachFile { moddedFile ->
+                        String entryName = moddedFile.getRelativePath().toString()
+                        if (!(
+                                entryName.endsWith(".proto") || entryName.endsWith(".dll") || entryName.endsWith(".so")
+                        ))
+                            moddedFile.exclude()
+                    }
                 }
             }
         }

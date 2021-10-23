@@ -1,7 +1,8 @@
 package carpet.settings;
 
 import carpet.CarpetServer;
-import carpet.microtiming.enums.MicroTimingTarget;
+import carpet.logging.microtiming.enums.MicroTimingTarget;
+import carpet.logging.microtiming.marker.MicroTimingMarkerManager;
 import carpet.utils.Messenger;
 import carpet.utils.TISCMConfig;
 import carpet.utils.Translations;
@@ -52,6 +53,12 @@ public class CarpetSettings
     //New features added at TISCarpet goes here for easier reading please
 
     @Rule(
+            desc = "Enables /chunkRegen for regenerating chunks",
+            category = COMMAND
+    )
+    public static String commandChunkRegen = "false";
+
+    @Rule(
             desc = "Enables /epsTest for performance tests",
             category = COMMAND
     )
@@ -80,7 +87,7 @@ public class CarpetSettings
             category = COMMAND,
             validate = ValidateWorldEdit.class
     )
-    public static String worldEdit = "false";
+    public static String modWorldEdit = "false";
 
     private static class ValidateWorldEdit extends Validator<String>
     {
@@ -95,7 +102,31 @@ public class CarpetSettings
         }
         public String description()
         {
-            return "You must set `TISCMConfig.MOD_WORLDEDIT` to true during mod compiling to enable world edit";
+            return "You must set `TISCMConfig.MOD_WORLDEDIT` to true during mod compiling and have worldedit classes included in .jar to enable world edit";
+        }
+    }
+
+    @Rule(
+            desc = "Enables spark command",
+            category = COMMAND,
+            validate = ValidateSpark.class
+    )
+    public static String modSpark = "false";
+
+    private static class ValidateSpark extends Validator<String>
+    {
+        @Override
+        public String validate(CommandSource source, ParsedRule<String> currentRule, String newValue, String string)
+        {
+            if (!newValue.equals("false") && !TISCMConfig.MOD_SPARK)
+            {
+                return null;
+            }
+            return newValue;
+        }
+        public String description()
+        {
+            return "You must set `TISCMConfig.MOD_SPARK` to true during mod compiling and have spark classes included in .jar to enable spark";
         }
     }
 
@@ -191,6 +222,41 @@ public class CarpetSettings
             category = {CREATIVE}
     )
     public static boolean microTiming = false;
+
+    @Rule(
+            desc = "Allow player to right click with dye item to mark a block to be logged by microTiming logger",
+            extra = {
+                    "You need to subscribe to microTiming logger for marking or displaying blocks",
+                    "Right click with the same dye to switch the marker to end rod mode with which block update information will be logged additionally. Right click again to remove the marker",
+                    "Right click a marker with slime ball item to make it movable. It will move to the corresponding new position when the attaching block is moved by a piston",
+                    "Use `/carpet microTimingDyeMarker clear` to remove all markers",
+                    "You can create a named marker by using a renamed dye item. Marker name will be shown in logging message as well",
+                    "[TODO] You can see boxes at marked blocks with fabric-carpet installed on your client. " +
+                            "With carpet-tis-addition installed the marker name could also be seen through blocks",
+            },
+            options = {"false", "true", "clear"},
+            validate = ValidateMicroTimingDyeMarker.class,
+            category = {CREATIVE}
+    )
+    public static String microTimingDyeMarker = "true";
+
+    private static class ValidateMicroTimingDyeMarker extends Validator<String>
+    {
+        @Override
+        public String validate(CommandSource source, ParsedRule<String> currentRule, String newValue, String string)
+        {
+            if ("clear".equals(newValue))
+            {
+                MicroTimingMarkerManager.getInstance().clear();
+                if (source != null)
+                {
+                    Messenger.m(source, "w " + MicroTimingMarkerManager.getInstance().tr("cleared", "Marker cleared"));
+                }
+                return currentRule.get();
+            }
+            return newValue;
+        }
+    }
 
     @Rule(
             desc = "Modify the way to specify events to be logged in microTiming logger",
