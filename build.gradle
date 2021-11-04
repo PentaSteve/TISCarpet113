@@ -3,6 +3,7 @@ buildscript {
         mavenLocal()
         maven { url "$projectDir/TISCM_libs" }
         maven { url = 'http://files.minecraftforge.net/maven' }
+        maven { url = 'https://dustless.cf/maven'}
         jcenter()
         mavenCentral()
         //maven {url 'http://plugins.gradle.org/m2/'} // For debug purposes
@@ -610,11 +611,7 @@ for (def dist : ['Client', 'Server']) {
                 from(zipTree(file)) {
                     eachFile { moddedFile ->
                         String entryName = moddedFile.getRelativePath().toString()
-                        if (!(
-                                entryName.matches('com/sk89q/worldedit/world/registry/.*\\.json') ||
-                                        file.name.startsWith('worldedit') && entryName.startsWith('lang/')
-                        ))
-                            moddedFile.exclude()
+                        if (!(entryName.matches('com/sk89q/worldedit/world/registry/.*\\.json') || file.name.startsWith('worldedit') && entryName.startsWith('lang/'))) moddedFile.exclude()
                     }
                 }
             }
@@ -626,9 +623,7 @@ for (def dist : ['Client', 'Server']) {
                 from(zipTree(file)) {
                     eachFile { moddedFile ->
                         String entryName = moddedFile.getRelativePath().toString()
-                        if (!(
-                                entryName.endsWith(".proto") || entryName.endsWith(".dll") || entryName.endsWith(".so")
-                        ))
+                        if (!( entryName.endsWith(".proto") || entryName.endsWith(".dll") || entryName.endsWith(".so") ))
                             moddedFile.exclude()
                     }
                 }
